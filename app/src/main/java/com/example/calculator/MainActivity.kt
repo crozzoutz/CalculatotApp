@@ -3,37 +3,35 @@ package com.example.calculator
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
-import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.Observer
+import androidx.lifecycle.ViewModelProvider
 import com.example.calculator.databinding.ActivityMainBinding
-
-
-private const val PENDING_OPERATION = "Pending Operation"
-private const val NUMBER1 = "Number1"
-private const val NUMBER1_STORED = "Number1 stored"
-
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
 
-    private val displayOperation by lazy(LazyThreadSafetyMode.NONE) { findViewById<TextView>(R.id.operation) }
-
-    // variables to store numbers
-
-    private var number1: Double? = null
-    private var pendingOperation = "="
+   // private val displayOperation by lazy(LazyThreadSafetyMode.NONE) { findViewById<TextView>(R.id.operation) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        //val viewModel = ViewModelProvider(this)[CalculatorViewModel::class.java]
+        val viewModel = ViewModelProvider(this)[BigDecimalViewModel::class.java]
+
+        viewModel.stringResult.observe(this, Observer<String>{ stringResult->binding.result.setText(stringResult)})
+        viewModel.stringNewNumber.observe(this,Observer<String>{stringNumber->binding.newnumber.setText(stringNumber)})
+        viewModel.stringDisplayOperation.observe(this,Observer<String>{stringOperation-> binding.operation.text = stringOperation })
+
+
         //create a listener for number buttons
 
         val listener = View.OnClickListener { v ->
-            val b = v as Button
-            binding.newnumber.append(b.text)
+            viewModel.numberPressed((v as Button).text.toString())
+
         }
 
         // setting listeners to each number buttons
@@ -53,16 +51,8 @@ class MainActivity : AppCompatActivity() {
         //  listeners for operands
 
         val operandListener = View.OnClickListener { v ->
-            val operand = (v as Button).text.toString()
-            try {
-                val value = binding.newnumber.text.toString().toDouble()
-                performOperation(value, operand)
-            } catch (e: NumberFormatException) {
-                binding.newnumber.setText("")
+            viewModel.operandPressed((v as Button).text.toString())
 
-            }
-            pendingOperation = operand
-            displayOperation.text = pendingOperation
         }
 
         // setting listeners to operand buttons
@@ -74,69 +64,8 @@ class MainActivity : AppCompatActivity() {
         binding.buttondivide.setOnClickListener(operandListener)
 
         binding.buttonneg.setOnClickListener { v ->
-            val value = binding.newnumber.text.toString()
-            if (value.isEmpty()) {
-                binding.newnumber.setText("-")
-            } else {
-                try {
-                    var doubleValue = value.toDouble()
-                    doubleValue *= -1
-                    binding.newnumber.setText(doubleValue.toString())
+            viewModel.negPressed()
 
-                } catch (e: NumberFormatException) {
-                    //newNumber was "-" or "." , so cleaning it
-                    binding.newnumber.setText("")
-                }
-            }
         }
-
-
-    }
-
-    private fun performOperation(value: Double, operation: String) {
-        if (number1 == null) {
-            number1 = value
-        } else {
-            if (pendingOperation == "=") {
-                pendingOperation = operation
-            }
-
-            when (pendingOperation) {
-                "=" -> number1 = value
-                "/" -> number1 = if (value == 0.0) {
-                    Double.NaN
-                } else {
-                    number1!! / value
-                }
-
-                "*" -> number1 = number1!! * value
-                "-" -> number1 = number1!! - value
-                "+" -> number1 = number1!! + value
-            }
-        }
-        binding.result.setText(number1.toString())
-        binding.newnumber.setText("")
-    }
-
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        if (number1 != null) {
-            outState.putDouble(NUMBER1, number1!!)
-            outState.putBoolean(NUMBER1_STORED, true)
-        }
-        outState.putString(PENDING_OPERATION, pendingOperation)
-    }
-
-    override fun onRestoreInstanceState(savedInstanceState: Bundle) {
-        super.onRestoreInstanceState(savedInstanceState)
-        number1 = if (savedInstanceState.getBoolean(NUMBER1_STORED, false)) {
-            savedInstanceState.getDouble(NUMBER1)
-
-        } else {
-            null
-        }
-        pendingOperation = savedInstanceState.getString(PENDING_OPERATION, "")
-        displayOperation.text = pendingOperation
-
     }
 }
